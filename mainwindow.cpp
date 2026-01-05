@@ -33,10 +33,28 @@ MainWindow::~MainWindow()
 void MainWindow::initDatabase()
 {
     db = QSqlDatabase::addDatabase("QSQLITE");
-    db.setDatabaseName("FinalLab.db");
+    db.setDatabaseName("D:/Qt/FinalLab.db");
 }
 
+// 打开数据库
+bool MainWindow::openDatabase()
+{
+    if (db.open()) {
+        qDebug() << "数据库连接成功";
+        return true;
+    } else {
+        qDebug() << "数据库连接失败：" << db.lastError().text();
+        return false;
+    }
+}
 
+// 关闭数据库
+void MainWindow::closeDatabase()
+{
+    if (db.isOpen()) {
+        db.close();
+    }
+}
 
 void MainWindow::on_btnAdd_clicked()
 {
