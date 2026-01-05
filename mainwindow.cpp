@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "taskeditdialog.h"
 #include <QFile>
 #include <QTextStream>
 #include <QDateTime>
@@ -9,11 +10,16 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    this->setWindowTitle("任务管理系统");
+
+    // 初始化数据库
     initDatabase();
     if (openDatabase()) {
-        refreshTable(); // 初始化时加载数据
+        createTables();
+        initFilterComboBox(); // 初始化筛选下拉框
+        loadTaskData();       // 加载初始任务数据
     } else {
-        QMessageBox::critical(this, "错误", "数据库连接失败！");
+        QMessageBox::critical(this, "数据库错误", "连接FinalLab.db失败！\n" + db.lastError().text());
     }
 }
 
@@ -23,13 +29,14 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-// 初始化数据库
+// 初始化数据库连接
 void MainWindow::initDatabase()
 {
-    // 假设数据库名为data.db，表名为info，包含id(主键)、name、age、address字段
     db = QSqlDatabase::addDatabase("QSQLITE");
     db.setDatabaseName("FinalLab.db");
 }
+
+
 
 void MainWindow::on_btnAdd_clicked()
 {
