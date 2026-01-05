@@ -6,7 +6,7 @@
 #include <QSqlQuery>
 #include <QSqlError>
 #include <QMessageBox>
-#include "editview.h"  // 包含编辑窗口头文件
+#include "taskeditdialog.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -21,18 +21,26 @@ public:
     ~MainWindow();
 
 private slots:
-    void on_btnAdd_clicked();
-    void on_btnEdit_clicked();
-    void on_btnDelete_clicked();
+    // 按钮事件
+    void on_btnAddTask_clicked();
+    void on_btnEditTask_clicked();
+    void on_btnDeleteTask_clicked();
     void on_btnRefresh_clicked();
-    void on_btnExport_clicked();
-    void refreshTable();  // 刷新表格数据
+    // 筛选条件变化事件
+    void on_comboPriorityFilter_currentIndexChanged(const QString &arg1);
+    void on_comboStatusFilter_currentIndexChanged(const QString &arg1);
 
 private:
     Ui::MainWindow *ui;
-    QSqlDatabase db;      // 数据库连接对象
-    void initDatabase();  // 初始化数据库
-    bool openDatabase();  // 打开数据库
-    void closeDatabase(); // 关闭数据库
+    QSqlDatabase db;
+
+    // 数据库操作
+    void initDatabase();
+    bool openDatabase();
+    void closeDatabase();
+    void createTables();
+    // 数据加载
+    void initFilterComboBox(); // 初始化筛选下拉框
+    void loadTaskData();       // 加载任务数据（支持筛选）
 };
 #endif // MAINWINDOW_H
