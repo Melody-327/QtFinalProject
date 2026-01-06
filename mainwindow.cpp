@@ -338,9 +338,296 @@ void MainWindow::on_btnRefresh_clicked()
     QMessageBox::information(this, "提示", "数据已刷新！");
 }
 
+// 导出按钮点击事件
 void MainWindow::on_btnExport_clicked()
 {
+    // 创建导出菜单
+    QMenu exportMenu;
+    exportMenu.addAction("导出为CSV", this, &MainWindow::exportToCsv);  // CSV导出选项
+    exportMenu.addAction("导出为PDF", this, &MainWindow::exportToPdf);  // PDF导出选项
 
+    // 在按钮位置显示下拉菜单
+    exportMenu.exec(ui->btnExport->mapToGlobal(QPoint(0, ui->btnExport->height())));
+}
+
+// 导出为CSV文件
+void MainWindow::exportToCsv()
+{
+    // 设置默认文件名（包含当前日期）
+    QString defaultFileName = QString("任务数据_%1.csv").arg(QDate::currentDate().toString("yyyyMMdd"));
+    QString fileName = QFileDialog::getSaveFileName(this, "导出CSV文件", defaultFileName, "CSV文件 (*.csv)");
+
+    if (fileName.isEmpty()) return;  // 用户取消操作
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QMessageBox::warning(this, "错误", "无法创建文件：" + file.errorString());
+        return;
+    }
+
+    QTextStream out(&file);
+
+    // 设置编码（兼容Qt5和Qt6）
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    out.setCodec("UTF-8");
+#else
+    out.setEncoding(QStringConverter::Utf8);
+#endif
+
+    // 写入UTF-8 BOM（使Excel能正确识别中文编码）
+    out << "\xEF\xBB\xBF";
+
+    // 写入CSV表头
+    out << "ID,任务名称,分类,优先级,截止日期,状态,描述\n";
+
+    // 查询任务数据（包含分类信息）
+    QSqlQuery query(db);
+    QString sql = "SELECT t.id, t.name, c.name as category, t.priority, t.deadline, t.status, t.desc "
+                  "FROM task t LEFT JOIN category c ON t.category_id = c.id ORDER BY t.id";
+
+    if (!query.exec(sql)) {
+        QMessageBox::critical(this, "错误", "查询数据失败：" + query.lastError().text());
+        file.close();
+        return;
+    }
+
+    // 写入数据行
+    int recordCount = 0;
+    while (query.next()) {
+        QStringList row;
+        for (int i = 0; i < 7; i++) {
+            QString value = query.value(i).toString();
+            // CSV特殊字符处理：逗号、引号、换行符需要转义
+            if (value.contains(',') || value.contains('"') || value.contains('\n')) {
+                value = "\"" + value.replace("\"", "\"\"") + "\"";  // 双引号转义
+            }
+            row << value;
+        }
+        out << row.join(",") << "\n";  // 用逗号连接字段
+        recordCount++;
+    }
+
+    file.close();
+
+    // 显示导出结果信息
+    QString resultMessage = QString("数据导出成功！\n\n"
+                                    "文件：%1\n"
+                                    "记录数：%2 条")
+                                .arg(fileName)
+                                .arg(recordCount);
+
+    QMessageBox::information(this, "导出成功", resultMessage);
+}
+
+// 导出为PDF文件
+void MainWindow::exportToPdf()
+{
+    // 设置默认文件名
+    QString defaultFileName = QString("任务数据_%1.pdf").arg(QDate::currentDate().toString("yyyyMMdd"));
+    QString fileName = QFileDialog::getSaveFileName(this, "导出PDF文件", defaultFileName, "PDF文件 (*.pdf)");
+
+    if (fileName.isEmpty()) return;
+
+    // 创建打印机对象（用于生成PDF）
+    QPrinter printer;
+
+    // 设置打印机属性（兼容Qt5和Qt6）
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    printer.setOutputFormat(QPrinter::PdfFormat);  // 输出格式为PDF
+    printer.setOutputFileName(fileName);          // 输出文件名
+    printer.setPageSize(QPrinter::A4);            // 页面大小A4
+    printer.setPageOrientation(QPrinter::Portrait);  // 纵向页面
+#else
+    printer.setOutputFormat(QPrinter::PdfFormat);
+    printer.setOutputFileName(fileName);
+    printer.setPageSize(QPageSize(QPageSize::A4));
+    printer.setPageOrientation(QPageLayout::Portrait);
+#endif
+
+    // 创建绘图对象（用于在PDF上绘制内容）
+    QPainter painter;
+    if (!painter.begin(&printer)) {
+        QMessageBox::critical(this, "错误", "无法创建PDF文件");
+        return;
+    }
+
+    // 设置不同字体样式
+    QFont titleFont("Arial", 18, QFont::Bold);    // 标题字体
+    QFont headerFont("Arial", 11, QFont::Bold);   // 表头字体
+    QFont dataFont("Arial", 10);                   // 数据字体
+    QFont footerFont("Arial", 8);                  // 页脚字体
+
+    // 获取页面尺寸
+    int pageWidth = printer.width();
+    int pageHeight = printer.height();
+
+    // 设置页面边距
+    int margin = 50;
+    int usableWidth = pageWidth - 2 * margin;  // 可用宽度
+    int currentY = margin;                     // 当前绘制位置Y坐标
+
+    // 查询任务数据
+    QSqlQuery query(db);
+    QString sql = "SELECT t.id, t.name, c.name as category, t.priority, t.deadline, t.status, t.desc "
+                  "FROM task t LEFT JOIN category c ON t.category_id = c.id ORDER BY t.id";
+
+    if (!query.exec(sql)) {
+        QMessageBox::critical(this, "错误", "查询数据失败：" + query.lastError().text());
+        painter.end();
+        return;
+    }
+
+    // 查询总记录数
+    int totalRecords = 0;
+    QSqlQuery countQuery(db);
+    if (countQuery.exec("SELECT COUNT(*) FROM task")) {
+        if (countQuery.next()) {
+            totalRecords = countQuery.value(0).toInt();
+        }
+    }
+
+    // 绘制标题
+    painter.setFont(titleFont);
+    painter.drawText(QRect(margin, currentY, usableWidth, 60),
+                     Qt::AlignCenter, "任务管理系统 - 任务列表");
+    currentY += 70;
+
+    // 绘制信息行（生成时间和记录数）
+    painter.setFont(dataFont);
+    QString infoText = QString("生成时间：%1 | 总记录数：%2 条")
+                           .arg(QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss"))
+                           .arg(totalRecords);
+    painter.drawText(QRect(margin, currentY, usableWidth, 30),
+                     Qt::AlignCenter, infoText);
+    currentY += 40;
+
+    // 设置表格列宽
+    int colWidths[] = {60, 180, 80, 80, 100, 80, 220};  // 各列宽度
+    int totalTableWidth = 0;
+    for (int w : colWidths) totalTableWidth += w;
+
+    // 如果表格总宽度超过可用宽度，等比例缩小
+    if (totalTableWidth > usableWidth) {
+        double scale = (double)usableWidth / totalTableWidth;
+        for (int i = 0; i < 7; i++) {
+            colWidths[i] = (int)(colWidths[i] * scale);
+        }
+        totalTableWidth = usableWidth;
+    }
+
+    // 计算表格起始X坐标（居中显示）
+    int tableStartX = margin + (usableWidth - totalTableWidth) / 2;
+
+    // 表头内容
+    QStringList headers = {"ID", "任务名称", "分类", "优先级", "截止日期", "状态", "描述"};
+
+    int rowHeight = 35;      // 行高
+    int pageNum = 1;         // 当前页码
+    int rowNum = 0;          // 当前行号
+    bool isFirstPage = true; // 是否为第一页
+
+    // 遍历查询结果，绘制表格
+    while (query.next()) {
+        // 如果是新的一页或第一页，绘制表头
+        if (rowNum == 0 || rowNum % 20 == 0) {  // 每页最多20行数据
+            if (!isFirstPage) {
+                printer.newPage();  // 创建新页面
+                pageNum++;
+                currentY = margin;  // 重置Y坐标
+            }
+
+            // 绘制表头背景
+            painter.setFont(headerFont);
+            painter.setBrush(QColor(240, 240, 240));  // 浅灰色背景
+            painter.setPen(Qt::NoPen);                // 无边框
+            painter.drawRect(tableStartX, currentY, totalTableWidth, rowHeight);
+
+            // 绘制表头文本和单元格边框
+            painter.setPen(QColor(50, 50, 50));  // 深灰色边框
+            int currentX = tableStartX;
+            for (int i = 0; i < headers.size(); i++) {
+                painter.drawRect(currentX, currentY, colWidths[i], rowHeight);  // 绘制单元格边框
+                painter.drawText(QRect(currentX, currentY, colWidths[i], rowHeight),
+                                 Qt::AlignCenter, headers[i]);  // 绘制表头文本
+                currentX += colWidths[i];
+            }
+
+            currentY += rowHeight;
+            painter.setFont(dataFont);  // 切换到数据字体
+
+            if (isFirstPage) isFirstPage = false;
+        }
+
+        // 设置交替行背景色（斑马线效果）
+        if (rowNum % 2 == 0) {
+            painter.setBrush(QColor(250, 250, 250));  // 浅灰色
+        } else {
+            painter.setBrush(Qt::white);  // 白色
+        }
+
+        painter.setPen(Qt::NoPen);
+        painter.drawRect(tableStartX, currentY, totalTableWidth, rowHeight);  // 绘制行背景
+
+        // 绘制单元格数据
+        painter.setPen(QColor(70, 70, 70));  // 深灰色文本
+        int currentX = tableStartX;
+
+        for (int col = 0; col < 7; col++) {
+            QString text = query.value(col).toString();
+
+            // 文本截断处理（防止内容过长）
+            if (col == 1 || col == 6) {  // 任务名称和描述列需要截断
+                int maxChars = col == 1 ? 15 : 25;  // 最大字符数
+                if (text.length() > maxChars) {
+                    text = text.left(maxChars) + "...";  // 截断并添加省略号
+                }
+            }
+
+            // 绘制单元格边框
+            painter.drawRect(currentX, currentY, colWidths[col], rowHeight);
+
+            // 设置文本对齐方式（ID列左对齐，其他居中）
+            Qt::Alignment alignment = (col == 0) ? Qt::AlignLeft | Qt::AlignVCenter : Qt::AlignCenter;
+            int padding = (col == 0) ? 10 : 5;  // 内边距
+
+            // 绘制单元格文本
+            painter.drawText(QRect(currentX + padding, currentY,
+                                   colWidths[col] - 2 * padding, rowHeight),
+                             alignment, text);
+            currentX += colWidths[col];
+        }
+
+        currentY += rowHeight;
+        rowNum++;
+
+        // 检查是否需要换页
+        if (currentY + rowHeight > pageHeight - margin) {
+            rowNum = 0;  // 重置行号，下一页重新开始计数
+        }
+    }
+
+    // 绘制页脚（仅在最后一页底部）
+    if (currentY + 50 < pageHeight) {
+        painter.setFont(footerFont);
+        painter.setPen(QColor(120, 120, 120));  // 灰色文本
+
+        QString footerText = QString("第 %1 页 | 任务管理系统").arg(pageNum);
+        painter.drawText(QRect(margin, pageHeight - 40, usableWidth, 30),
+                         Qt::AlignCenter, footerText);
+    }
+
+    painter.end();  // 结束绘制
+
+    // 显示导出结果信息
+    QString resultMessage = QString("PDF导出成功！\n\n"
+                                    "文件：%1\n"
+                                    "总页数：%2 页\n"
+                                    "记录数：%3 条")
+                                .arg(fileName)
+                                .arg(pageNum)
+                                .arg(rowNum);
+
+    QMessageBox::information(this, "导出成功", resultMessage);
 }
 
 // 优先级过滤器改变事件
