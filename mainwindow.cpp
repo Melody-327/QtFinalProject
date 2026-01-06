@@ -110,6 +110,34 @@ void MainWindow::createTables()
     }
 }
 
+// 检查数据库连接详情
+void MainWindow::checkDatabaseConnection()
+{
+    if (!db.isOpen()) return;
+
+    QSqlQuery checkQuery(db);
+    // 使用PRAGMA命令获取数据库信息
+    if (checkQuery.exec("PRAGMA database_list")) {
+        qDebug() << "[MainWindow] 数据库连接详情:";
+        while (checkQuery.next()) {
+            QString file = checkQuery.value(2).toString();  // 获取数据库文件路径
+            qDebug() << "  文件:" << file;
+        }
+    }
+}
+
+// 初始化过滤器下拉框
+void MainWindow::initFilterComboBox()
+{
+    // 初始化优先级过滤器
+    ui->comboPriorityFilter->clear();
+    ui->comboPriorityFilter->addItems({"全部", "高", "中", "低"});
+
+    // 初始化状态过滤器
+    ui->comboStatusFilter->clear();
+    ui->comboStatusFilter->addItems({"全部", "未开始", "进行中", "已完成"});
+}
+
 void MainWindow::on_btnAdd_clicked()
 {
 
