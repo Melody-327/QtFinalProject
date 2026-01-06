@@ -7,28 +7,100 @@
 #include <QDir>
 #include <QDebug>
 
+// 主窗口构造函数
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
+    , m_taskModel(nullptr)        // 任务数据模型
+    , m_proxyModel(nullptr)       // 代理模型（用于排序和过滤）
+    , m_reminderManager(nullptr)  // 提醒管理器
 {
-    ui->setupUi(this);
-    this->setWindowTitle("任务管理系统");
+    qDebug() << "\n[MainWindow] 构造函数开始";
 
-    // 初始化数据库
-    initDatabase();
-    if (openDatabase()) {
-        createTables();
-        initFilterComboBox(); // 初始化筛选下拉框
-        loadTaskData();       // 加载初始任务数据
-    } else {
-        QMessageBox::critical(this, "数据库错误", "连接FinalLab.db失败！\n" + db.lastError().text());
+    try {
+        // 设置UI界面
+        ui->setupUi(this);
+        this->setWindowTitle("任务管理系统 - 个人工作与任务管理");
+
+        // 初始化提醒管理器
+        m_reminderManager = new ReminderManager(this);
+
+        // 初始化数据库
+        initDatabase();
+
+        // 打开数据库连接
+        if (openDatabase()) {
+            // 设置提醒管理器的数据库连接
+            m_reminderManager->setDatabase(db);
+            m_reminderManager->startChecking();  // 开始检查提醒
+
+            // 检查数据库连接
+            checkDatabaseConnection();
+            // 创建数据表（如果不存在）
+            createTables();
+            // 初始化过滤器下拉框
+            initFilterComboBox();
+
+            // 创建任务数据模型
+            m_taskModel = new QSqlTableModel(this, db);
+            m_taskModel->setTable("task");  // 设置操作的表名
+            m_taskModel->setEditStrategy(QSqlTableModel::OnManualSubmit);  // 手动提交编辑
+
+            // 创建代理模型用于排序和过滤
+            m_proxyModel = new QSortFilterProxyModel(this);
+            m_proxyModel->setSourceModel(m_taskModel);  // 设置源模型
+            m_proxyModel->setFilterCaseSensitivity(Qt::CaseInsensitive);  // 过滤不区分大小写
+
+            // 设置表格视图的模型
+            ui->tableViewTask->setModel(m_proxyModel);
+
+            // 设置表头显示文本
+            m_taskModel->setHeaderData(m_taskModel->fieldIndex("id"), Qt::Horizontal, "ID");
+            m_taskModel->setHeaderData(m_taskModel->fieldIndex("name"), Qt::Horizontal, "任务名称");
+            m_taskModel->setHeaderData(m_taskModel->fieldIndex("priority"), Qt::Horizontal, "优先级");
+            m_taskModel->setHeaderData(m_taskModel->fieldIndex("deadline"), Qt::Horizontal, "截止日期");
+            m_taskModel->setHeaderData(m_taskModel->fieldIndex("status"), Qt::Horizontal, "状态");
+            m_taskModel->setHeaderData(m_taskModel->fieldIndex("desc"), Qt::Horizontal, "描述");
+
+            // 隐藏分类ID列（用户不需要看到）
+            int categoryIdCol = m_taskModel->fieldIndex("category_id");
+            if (categoryIdCol >= 0) {
+                ui->tableViewTask->hideColumn(categoryIdCol);
+            }
+
+            // 设置表格属性
+            ui->tableViewTask->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);  // 列自适应宽度
+            ui->tableViewTask->setEditTriggers(QAbstractItemView::NoEditTriggers);  // 禁止直接编辑
+
+            // 加载任务数据
+            loadTaskData();
+            // 更新任务统计信息
+            updateTaskStats();
+
+        } else {
+            // 数据库连接失败，显示错误信息
+            QMessageBox::critical(this, "数据库错误",
+                                  "连接FinalLab.db失败！\n错误信息：" + db.lastError().text());
+        }
+
+    } catch (...) {
+        // 处理初始化过程中的异常
+        QMessageBox::critical(this, "初始化错误", "程序初始化时发生异常");
     }
 }
 
+// 主窗口析构函数
 MainWindow::~MainWindow()
 {
-    closeDatabase();
+    // 清理资源
+    if (m_reminderManager) {
+        m_reminderManager->stopChecking();  // 停止提醒检查
+        delete m_reminderManager;
+    }
+    if (m_proxyModel) delete m_proxyModel;
+    if (m_taskModel) delete m_taskModel;
     delete ui;
+    closeDatabase();  // 关闭数据库连接
 }
 
 // 初始化数据库连接
