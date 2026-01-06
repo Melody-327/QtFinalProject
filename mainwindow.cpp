@@ -342,3 +342,17 @@ void MainWindow::on_btnExport_clicked()
 {
 
 }
+
+// 优先级过滤器改变事件
+void MainWindow::on_comboPriorityFilter_currentIndexChanged(int index)
+{
+    Q_UNUSED(index);  // 标记未使用参数（避免编译器警告）
+    loadTaskData();   // 重新加载数据
+}
+
+// 状态过滤器改变事件
+void MainWindow::on_comboStatusFilter_currentIndexChanged(int index)
+{
+    Q_UNUSED(index);  // 标记未使用参数
+    loadTaskData();   // 重新加载数据
+}
