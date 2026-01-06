@@ -111,6 +111,93 @@ TaskEditDialog::~TaskEditDialog()
     qDebug() << "[TaskEditDialog] 析构函数结束";
 }
 
+// 初始化下拉框选项
+void TaskEditDialog::initComboBox()
+{
+    qDebug() << "[TaskEditDialog] 初始化下拉框";
+
+    // 初始化优先级下拉框
+    ui->comboPriority->clear();
+    ui->comboPriority->addItems({"高", "中", "低"});
+    qDebug() << "[TaskEditDialog] 优先级下拉框初始化完成";
+
+    // 初始化状态下拉框
+    ui->comboStatus->clear();
+    ui->comboStatus->addItems({"未开始", "进行中", "已完成"});
+    qDebug() << "[TaskEditDialog] 状态下拉框初始化完成";
+}
+
+// 加载分类数据到下拉框
+void TaskEditDialog::loadCategoryData()
+{
+    ui->comboCategory->clear();  // 清空现有分类
+
+    qDebug() << "[TaskEditDialog] 开始从数据库加载分类...";
+
+    if (!m_db.isOpen()) {
+        qDebug() << "[TaskEditDialog] 数据库未打开，无法加载分类";
+        return;
+    }
+
+    // 从数据库查询所有分类
+    QSqlQuery query(m_db);
+    if (!query.exec("SELECT id, name FROM category ORDER BY name")) {
+        qDebug() << "[TaskEditDialog] 查询分类失败:" << query.lastError().text();
+        qDebug() << "[TaskEditDialog] 执行的SQL:" << query.lastQuery();
+
+        // 查询失败时添加默认分类
+        QStringList defaultCategories = {"工作", "生活", "学习", "健康", "社交"};
+        for (int i = 0; i < defaultCategories.size(); i++) {
+            ui->comboCategory->addItem(defaultCategories[i], i+1);
+        }
+        return;
+    }
+
+    // 遍历查询结果，添加到下拉框
+    int count = 0;
+    while (query.next()) {
+        count++;
+        int id = query.value(0).toInt();        // 分类ID
+        QString name = query.value(1).toString();  // 分类名称
+
+        qDebug() << "[TaskEditDialog] 找到分类 #" << count << ": ID=" << id << ", name=" << name;
+
+        ui->comboCategory->addItem(name, id);  // 添加分类，保存ID作为关联数据
+    }
+
+    qDebug() << "[TaskEditDialog] 共从数据库加载了" << count << "个分类";
+    qDebug() << "[TaskEditDialog] 下拉框当前有" << ui->comboCategory->count() << "个项目";
+
+    // 如果数据库分类数量不足，补充默认分类
+    if (count < 5) {
+        qDebug() << "[TaskEditDialog] 数据库分类数量不足，添加缺失的默认分类";
+        QStringList allCategories = {"工作", "生活", "学习", "健康", "社交"};
+
+        // 检查哪些分类已经存在
+        for (const QString& category : allCategories) {
+            bool exists = false;
+            for (int i = 0; i < ui->comboCategory->count(); i++) {
+                if (ui->comboCategory->itemText(i) == category) {
+                    exists = true;
+                    break;
+                }
+            }
+
+            // 添加不存在的分类
+            if (!exists) {
+                qDebug() << "[TaskEditDialog] 添加缺失的分类:" << category;
+                ui->comboCategory->addItem(category, ui->comboCategory->count() + 1);
+            }
+        }
+    }
+
+    // 默认选中第一个分类
+    if (ui->comboCategory->count() > 0) {
+        ui->comboCategory->setCurrentIndex(0);
+        qDebug() << "[TaskEditDialog] 默认选中:" << ui->comboCategory->currentText();
+    }
+}
+
 // 确认按钮
 void TaskEditDialog::on_btnConfirm_clicked()
 {
