@@ -138,29 +138,70 @@ void MainWindow::initFilterComboBox()
     ui->comboStatusFilter->addItems({"全部", "未开始", "进行中", "已完成"});
 }
 
-void MainWindow::on_btnAdd_clicked()
+// 添加任务按钮点击事件
+void MainWindow::on_btnAddTask_clicked()
 {
-
+    // 创建任务编辑对话框（taskId=-1表示添加模式）
+    TaskEditDialog dlg(this, -1, db);
+    dlg.setWindowTitle("添加任务");
+    if (dlg.exec() == QDialog::Accepted) {  // 显示模态对话框
+        loadTaskData();  // 重新加载数据
+        QMessageBox::information(this, "成功", "任务添加成功！");
+    }
 }
 
-
-void MainWindow::on_btnEdit_clicked()
+// 编辑任务按钮点击事件
+void MainWindow::on_btnEditTask_clicked()
 {
+    int taskId = getCurrentTaskId();
+    if (taskId < 0) {
+        QMessageBox::warning(this, "提示", "请先选中要编辑的任务！");
+        return;
+    }
 
+    // 创建任务编辑对话框（taskId>0表示编辑模式）
+    TaskEditDialog dlg(this, taskId, db);
+    dlg.setWindowTitle("编辑任务");
+    if (dlg.exec() == QDialog::Accepted) {
+        loadTaskData();  // 重新加载数据
+        QMessageBox::information(this, "成功", "任务修改成功！");
+    }
 }
 
-
-void MainWindow::on_btnDelete_clicked()
+// 删除任务按钮点击事件
+void MainWindow::on_btnDeleteTask_clicked()
 {
+    int taskId = getCurrentTaskId();
+    if (taskId < 0) {
+        QMessageBox::warning(this, "提示", "请先选中要删除的任务！");
+        return;
+    }
 
+    // 确认删除对话框
+    if (QMessageBox::question(this, "确认", "确定删除该任务吗？",
+                              QMessageBox::Yes|QMessageBox::No) != QMessageBox::Yes) {
+        return;
+    }
+
+    // 执行删除操作
+    QSqlQuery query(db);
+    query.prepare("DELETE FROM task WHERE id = :id");  // 使用参数化查询防止SQL注入
+    query.bindValue(":id", taskId);
+
+    if (query.exec()) {
+        loadTaskData();  // 重新加载数据
+        QMessageBox::information(this, "成功", "任务删除成功！");
+    } else {
+        QMessageBox::critical(this, "失败", "删除失败：" + query.lastError().text());
+    }
 }
 
-
+// 刷新按钮点击事件
 void MainWindow::on_btnRefresh_clicked()
 {
-
+    loadTaskData();  // 重新加载数据
+    QMessageBox::information(this, "提示", "数据已刷新！");
 }
-
 
 void MainWindow::on_btnExport_clicked()
 {
