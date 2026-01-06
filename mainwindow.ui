@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>800</width>
+    <width>805</width>
     <height>600</height>
    </rect>
   </property>
@@ -84,21 +84,21 @@
           <item>
            <layout class="QHBoxLayout" name="horizontalLayout">
             <item>
-             <widget class="QPushButton" name="btnAdd">
+             <widget class="QPushButton" name="btnAddTask">
               <property name="text">
                <string>添加任务</string>
               </property>
              </widget>
             </item>
             <item>
-             <widget class="QPushButton" name="btnEdit">
+             <widget class="QPushButton" name="btnEditTask">
               <property name="text">
                <string>编辑任务</string>
               </property>
              </widget>
             </item>
             <item>
-             <widget class="QPushButton" name="btnDelete">
+             <widget class="QPushButton" name="btnDeleteTask">
               <property name="text">
                <string>删除任务</string>
               </property>
@@ -148,7 +148,7 @@
                </widget>
               </item>
               <item>
-               <widget class="QComboBox" name="comboBox">
+               <widget class="QComboBox" name="comboPriorityFilter">
                 <item>
                  <property name="text">
                   <string>全部</string>
@@ -183,7 +183,7 @@
                </widget>
               </item>
               <item>
-               <widget class="QComboBox" name="comboBox_2">
+               <widget class="QComboBox" name="comboStatusFilter">
                 <item>
                  <property name="text">
                   <string>全部</string>
@@ -233,7 +233,7 @@
          </layout>
         </item>
         <item>
-         <widget class="QTableView" name="tableView"/>
+         <widget class="QTableView" name="tableViewTask"/>
         </item>
        </layout>
       </item>
@@ -242,14 +242,34 @@
         <item>
          <widget class="QPushButton" name="btnExport">
           <property name="text">
-           <string>导出CSV</string>
+           <string>导出</string>
           </property>
          </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_7">
+          <property name="orientation">
+           <enum>Qt::Orientation::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
         </item>
         <item>
          <widget class="QLabel" name="label_4">
           <property name="text">
            <string>状态：</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="labelStatusInfo">
+          <property name="text">
+           <string>总计: 0 | 已完成: 0 | 进行中: 0 | 未开始: 0</string>
           </property>
          </widget>
         </item>
@@ -264,8 +284,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>800</width>
-     <height>25</height>
+     <width>805</width>
+     <height>21</height>
     </rect>
    </property>
   </widget>
