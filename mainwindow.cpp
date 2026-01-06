@@ -138,6 +138,141 @@ void MainWindow::initFilterComboBox()
     ui->comboStatusFilter->addItems({"全部", "未开始", "进行中", "已完成"});
 }
 
+// 加载任务数据
+void MainWindow::loadTaskData()
+{
+    if (!m_taskModel || !db.isOpen()) return;
+
+    // 获取当前过滤条件
+    QString priorityFilter = ui->comboPriorityFilter->currentText();
+    QString statusFilter = ui->comboStatusFilter->currentText();
+
+    QString filterStr;  // 过滤条件字符串
+
+    // 构建优先级过滤条件
+    if (priorityFilter != "全部" && !priorityFilter.isEmpty()) {
+        filterStr = QString("priority = '%1'").arg(priorityFilter);
+    }
+
+    // 构建状态过滤条件
+    if (statusFilter != "全部" && !statusFilter.isEmpty()) {
+        if (!filterStr.isEmpty()) filterStr += " AND ";
+        filterStr += QString("status = '%1'").arg(statusFilter);
+    }
+
+    // 应用过滤条件到模型
+    if (!filterStr.isEmpty()) {
+        m_taskModel->setFilter(filterStr);
+    } else {
+        m_taskModel->setFilter("");  // 清空过滤条件，显示所有数据
+    }
+
+    m_taskModel->select();  // 从数据库重新加载数据
+    updateTaskStats();      // 更新统计信息
+}
+
+// 获取当前选中任务的ID
+int MainWindow::getCurrentTaskId()
+{
+    QModelIndex currentIndex = ui->tableViewTask->currentIndex();
+    if (!currentIndex.isValid()) return -1;  // 没有选中行
+
+    // 将代理模型索引转换为源模型索引
+    QModelIndex sourceIndex = m_proxyModel->mapToSource(currentIndex);
+    int idCol = m_taskModel->fieldIndex("id");  // 获取ID列的索引
+    return m_taskModel->data(m_taskModel->index(sourceIndex.row(), idCol)).toInt();  // 返回ID值
+}
+
+// 更新任务统计信息
+void MainWindow::updateTaskStats()
+{
+    if (!db.isOpen()) return;
+
+    // 获取当前过滤条件
+    QString priorityFilter = ui->comboPriorityFilter->currentText();
+    QString statusFilter = ui->comboStatusFilter->currentText();
+
+    // 构建基础WHERE子句
+    QString baseWhereClause = "";
+    if (priorityFilter != "全部" && !priorityFilter.isEmpty()) {
+        baseWhereClause = QString("priority='%1'").arg(priorityFilter);
+    }
+    if (statusFilter != "全部" && !statusFilter.isEmpty()) {
+        if (!baseWhereClause.isEmpty()) baseWhereClause += " AND ";
+        baseWhereClause += QString("status='%1'").arg(statusFilter);
+    }
+
+    // 查询总任务数
+    QString totalQueryStr = "SELECT COUNT(*) FROM task";
+    if (!baseWhereClause.isEmpty()) totalQueryStr += " WHERE " + baseWhereClause;
+
+    QSqlQuery totalQuery(db);
+    int totalTasks = 0;
+    if (totalQuery.exec(totalQueryStr) && totalQuery.next()) {
+        totalTasks = totalQuery.value(0).toInt();
+    }
+
+    // 查询已完成任务数
+    QString completedQueryStr = "SELECT COUNT(*) FROM task WHERE status='已完成'";
+    if (!baseWhereClause.isEmpty()) {
+        completedQueryStr = "SELECT COUNT(*) FROM task WHERE " + baseWhereClause + " AND status='已完成'";
+    }
+
+    QSqlQuery completedQuery(db);
+    int completedTasks = 0;
+    if (completedQuery.exec(completedQueryStr) && completedQuery.next()) {
+        completedTasks = completedQuery.value(0).toInt();
+    }
+
+    // 查询进行中任务数
+    QString inProgressQueryStr = "SELECT COUNT(*) FROM task WHERE status='进行中'";
+    if (!baseWhereClause.isEmpty()) {
+        inProgressQueryStr = "SELECT COUNT(*) FROM task WHERE " + baseWhereClause + " AND status='进行中'";
+    }
+
+    QSqlQuery inProgressQuery(db);
+    int inProgressTasks = 0;
+    if (inProgressQuery.exec(inProgressQueryStr) && inProgressQuery.next()) {
+        inProgressTasks = inProgressQuery.value(0).toInt();
+    }
+
+    // 查询未开始任务数
+    QString pendingQueryStr = "SELECT COUNT(*) FROM task WHERE status='未开始'";
+    if (!baseWhereClause.isEmpty()) {
+        pendingQueryStr = "SELECT COUNT(*) FROM task WHERE " + baseWhereClause + " AND status='未开始'";
+    }
+
+    QSqlQuery pendingQuery(db);
+    int pendingTasks = 0;
+    if (pendingQuery.exec(pendingQueryStr) && pendingQuery.next()) {
+        pendingTasks = pendingQuery.value(0).toInt();
+    }
+
+    // 格式化统计信息文本
+    QString statsText = QString("总计: %1 | 已完成: %2 | 进行中: %3 | 未开始: %4")
+                            .arg(totalTasks)
+                            .arg(completedTasks)
+                            .arg(inProgressTasks)
+                            .arg(pendingTasks);
+
+    // 更新状态标签显示
+    if (ui->labelStatusInfo) {
+        ui->labelStatusInfo->setText(statsText);
+    }
+}
+
+// 获取特定状态和优先级的任务数量（辅助函数）
+int MainWindow::getPriorityCount(const QString& status, const QString& priority)
+{
+    QString queryStr = QString("SELECT COUNT(*) FROM task WHERE status='%1' AND priority='%2'")
+    .arg(status).arg(priority);
+    QSqlQuery query(db);
+    if (query.exec(queryStr) && query.next()) {
+        return query.value(0).toInt();
+    }
+    return 0;
+}
+
 // 添加任务按钮点击事件
 void MainWindow::on_btnAddTask_clicked()
 {
