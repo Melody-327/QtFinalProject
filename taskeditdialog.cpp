@@ -382,22 +382,22 @@ bool TaskEditDialog::saveTaskData()
     return true;
 }
 
-// 确认按钮
+// 确认按钮点击事件
 void TaskEditDialog::on_btnConfirm_clicked()
 {
     qDebug() << "[TaskEditDialog] 点击确认按钮";
 
     if (saveTaskData()) {
         qDebug() << "[TaskEditDialog] 保存成功，关闭对话框";
-        this->accept(); // 关闭弹窗并返回成功
+        this->accept();  // 关闭对话框并返回Accepted
     } else {
         qDebug() << "[TaskEditDialog] 保存失败";
     }
 }
 
-// 取消按钮
+// 取消按钮点击事件
 void TaskEditDialog::on_btnCancel_clicked()
 {
     qDebug() << "[TaskEditDialog] 点击取消按钮";
-    this->reject(); // 关闭弹窗并返回取消
+    this->reject();  // 关闭对话框并返回Rejected
 }
