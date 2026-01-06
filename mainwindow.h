@@ -6,7 +6,27 @@
 #include <QSqlQuery>
 #include <QSqlError>
 #include <QMessageBox>
+#include <QSqlTableModel>
+#include <QSortFilterProxyModel>
+#include <QHeaderView>
+#include <QLabel>
+#include <QDebug>
+#include <QMenu>
+#include <QPrinter>      // PDF导出
+#include <QPainter>      // PDF导出
+#include <QFileDialog>   // 文件对话框
+#include <QTextStream>   // 文本流
+#include <QDate>         // 日期
+#include <QDateTime>     // 日期时间
 #include "taskeditdialog.h"
+#include "remindermanager.h"
+
+// Qt6 兼容性处理
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#include <QStringConverter>  // Qt6 的编码转换
+#include <QPageSize>        // Qt6 页面尺寸
+#include <QPageLayout>      // Qt6 页面布局
+#endif
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -21,26 +41,41 @@ public:
     ~MainWindow();
 
 private slots:
-    // 按钮事件
     void on_btnAddTask_clicked();
     void on_btnEditTask_clicked();
     void on_btnDeleteTask_clicked();
     void on_btnRefresh_clicked();
-    // 筛选条件变化事件
-    void on_comboPriorityFilter_currentIndexChanged(const QString &arg1);
-    void on_comboStatusFilter_currentIndexChanged(const QString &arg1);
+    void on_btnExport_clicked();
+
+    void on_comboPriorityFilter_currentIndexChanged(int index);
+    void on_comboStatusFilter_currentIndexChanged(int index);
 
 private:
     Ui::MainWindow *ui;
     QSqlDatabase db;
+    QSqlTableModel *m_taskModel;
+    QSortFilterProxyModel *m_proxyModel;
+    ReminderManager *m_reminderManager;
 
     // 数据库操作
     void initDatabase();
     bool openDatabase();
     void closeDatabase();
     void createTables();
-    // 数据加载
-    void initFilterComboBox(); // 初始化筛选下拉框
-    void loadTaskData();       // 加载任务数据（支持筛选）
+
+    // 导出功能
+    void exportToCsv();
+    void exportToPdf();
+
+    void checkDatabaseConnection();
+
+    // 数据加载/初始化
+    void initFilterComboBox();
+    void loadTaskData();
+    int getCurrentTaskId();
+    void updateTaskStats();
+
+    // 辅助函数
+    int getPriorityCount(const QString& status, const QString& priority);
 };
 #endif // MAINWINDOW_H
